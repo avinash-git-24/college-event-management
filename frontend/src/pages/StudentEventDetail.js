@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { FaArrowLeft, FaCalendarAlt, FaClock, FaMapMarkerAlt, FaUsers, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
-import { eventsAPI, formsAPI } from '../services/api';
+import { eventsAPI } from '../services/api';
 import FormFiller from '../components/FormFiller';
 import './StudentDashboard.css';
 
@@ -36,27 +36,25 @@ const StudentEventDetail = () => {
     loadEvent();
   }, [id]);
 
+  const requiresEventFormCompletion = (err) => {
+    const message = (err?.message || '').toLowerCase();
+    return message.includes('complete the event form before registering');
+  };
+
   const handleRegister = async () => {
     try {
       setError('');
       setActionMessage('');
-
-      if (activeFormId) {
-        try {
-          await formsAPI.getMyFormResponse(activeFormId);
-          const updated = await eventsAPI.registerForEvent(id);
-          setEventItem(updated);
-          setActionMessage('Registration successful.');
-        } catch (err) {
-          setCurrentFormId(activeFormId);
-          setShowFormFiller(true);
-        }
-      } else {
-        const updated = await eventsAPI.registerForEvent(id);
-        setEventItem(updated);
-        setActionMessage('Registration successful.');
-      }
+      const updated = await eventsAPI.registerForEvent(id);
+      setEventItem(updated);
+      setActionMessage('Registration successful.');
     } catch (err) {
+      if (activeFormId && requiresEventFormCompletion(err)) {
+        setCurrentFormId(activeFormId);
+        setShowFormFiller(true);
+        return;
+      }
+
       setError(err.message || 'Failed to register for this event.');
       console.error('StudentEventDetail register error:', err);
     }

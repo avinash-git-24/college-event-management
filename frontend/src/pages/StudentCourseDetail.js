@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { FaArrowLeft, FaCalendarAlt, FaBook, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
-import { coursesAPI, formsAPI } from '../services/api';
+import { coursesAPI } from '../services/api';
 import FormFiller from '../components/FormFiller';
 import './StudentDashboard.css';
 
@@ -36,27 +36,25 @@ const StudentCourseDetail = () => {
     loadCourse();
   }, [id]);
 
+  const requiresCourseFormCompletion = (err) => {
+    const message = (err?.message || '').toLowerCase();
+    return message.includes('complete the course form before enrolling');
+  };
+
   const handleEnroll = async () => {
     try {
       setActionMessage('');
       setError('');
-
-      if (activeFormId) {
-        try {
-          await formsAPI.getMyFormResponse(activeFormId);
-          const updated = await coursesAPI.enrollCourse(id);
-          setCourse(updated);
-          setActionMessage('Enrollment successful.');
-        } catch (err) {
-          setCurrentFormId(activeFormId);
-          setShowFormFiller(true);
-        }
-      } else {
-        const updated = await coursesAPI.enrollCourse(id);
-        setCourse(updated);
-        setActionMessage('Enrollment successful.');
-      }
+      const updated = await coursesAPI.enrollCourse(id);
+      setCourse(updated);
+      setActionMessage('Enrollment successful.');
     } catch (err) {
+      if (activeFormId && requiresCourseFormCompletion(err)) {
+        setCurrentFormId(activeFormId);
+        setShowFormFiller(true);
+        return;
+      }
+
       setError(err.message || 'Failed to enroll in this course.');
       console.error('StudentCourseDetail enroll error:', err);
     }

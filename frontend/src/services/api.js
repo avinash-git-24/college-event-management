@@ -16,6 +16,24 @@ const MOCK_STORAGE_KEYS = {
 // Helper function to get auth token
 const getAuthToken = () => localStorage.getItem('token');
 
+const buildHttpError = async (response, fallbackMessage) => {
+  let message = fallbackMessage;
+
+  try {
+    const errorData = await response.json();
+    if (errorData?.message) {
+      message = errorData.message;
+    }
+  } catch (parseError) {
+    // Ignore JSON parse errors and keep fallback message.
+  }
+
+  const error = new Error(message);
+  error.status = response.status;
+  error.isHttpError = true;
+  return error;
+};
+
 // Helper function to make authenticated requests with fallback to mock data
 const authRequest = async (url, options = {}) => {
   const token = getAuthToken();
@@ -35,11 +53,15 @@ const authRequest = async (url, options = {}) => {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw await buildHttpError(response, `HTTP ${response.status}`);
     }
 
     return response.json();
   } catch (error) {
+    if (error?.isHttpError) {
+      throw error;
+    }
+
     console.warn(`API call to ${url} failed, using mock data:`, error.message);
     // Return mock data for development
     return getMockData(url, options);
@@ -367,6 +389,112 @@ const setStoredMockData = (key, value) => {
   return value;
 };
 
+const createMockId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const buildSimpleRegistrationFields = (type) => [
+  {
+    name: 'studentName',
+    label: 'Student Name',
+    type: 'text',
+    required: true,
+    placeholder: 'Enter your full name',
+  },
+  {
+    name: 'email',
+    label: 'Email Address',
+    type: 'email',
+    required: true,
+    placeholder: 'Enter your college email',
+  },
+  {
+    name: type === 'course' ? 'learningGoals' : 'interestReason',
+    label: type === 'course' ? 'Why do you want to enroll?' : 'Why do you want to join?',
+    type: 'textarea',
+    required: true,
+    placeholder: type === 'course'
+      ? 'Share your learning goals'
+      : 'Share your reason for joining this event',
+  },
+];
+
+const createSimpleFormForItem = (type, itemId, itemTitle) => ({
+  _id: createMockId('form'),
+  type,
+  itemId,
+  title: `${itemTitle || 'Registration'} Form`,
+  description: type === 'course'
+    ? 'Complete this short form before course enrollment.'
+    : 'Complete this short form before event registration.',
+  fields: buildSimpleRegistrationFields(type),
+  isActive: true,
+  createdAt: new Date().toISOString(),
+});
+
+const ensureSimpleFormsForAllMockItems = () => {
+  const courses = getStoredMockData(MOCK_STORAGE_KEYS.courses, defaultCourses);
+  const events = getStoredMockData(MOCK_STORAGE_KEYS.events, defaultEvents);
+  const forms = getStoredForms();
+
+  let nextForms = [...forms];
+  let coursesChanged = false;
+  let eventsChanged = false;
+  let formsChanged = false;
+
+  const formsByItem = new Map(nextForms.map((form) => [`${form.type}:${form.itemId}`, form]));
+
+  const nextCourses = courses.map((course) => {
+    const key = `course:${course._id}`;
+    const linkedForm = formsByItem.get(key);
+
+    if (linkedForm) {
+      if (course.formId !== linkedForm._id) {
+        coursesChanged = true;
+        return { ...course, formId: linkedForm._id };
+      }
+      return course;
+    }
+
+    const form = createSimpleFormForItem('course', course._id, course.title);
+    nextForms = [form, ...nextForms];
+    formsByItem.set(key, form);
+    formsChanged = true;
+    coursesChanged = true;
+    return { ...course, formId: form._id };
+  });
+
+  const nextEvents = events.map((event) => {
+    const key = `event:${event._id}`;
+    const linkedForm = formsByItem.get(key);
+
+    if (linkedForm) {
+      if (event.formId !== linkedForm._id) {
+        eventsChanged = true;
+        return { ...event, formId: linkedForm._id };
+      }
+      return event;
+    }
+
+    const form = createSimpleFormForItem('event', event._id, event.title);
+    nextForms = [form, ...nextForms];
+    formsByItem.set(key, form);
+    formsChanged = true;
+    eventsChanged = true;
+    return { ...event, formId: form._id };
+  });
+
+  if (formsChanged) {
+    setStoredMockData(MOCK_STORAGE_KEYS.forms, nextForms);
+  }
+
+  if (coursesChanged) {
+    setStoredMockData(MOCK_STORAGE_KEYS.courses, nextCourses);
+  }
+
+  if (eventsChanged) {
+    setStoredMockData(MOCK_STORAGE_KEYS.events, nextEvents);
+  }
+};
+
 const createMockError = (message, status = 400) => {
   const error = new Error(message);
   error.status = status;
@@ -413,6 +541,8 @@ const deleteMockItemForms = (type, itemId) => {
 };
 
 const getMockData = (url, options = {}) => {
+  ensureSimpleFormsForAllMockItems();
+
   const method = (options.method || 'GET').toUpperCase();
   const body = options.body ? JSON.parse(options.body) : {};
   const currentUser = getCurrentMockUser();
