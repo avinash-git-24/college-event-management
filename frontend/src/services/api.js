@@ -1,6 +1,9 @@
 import { validateFormBuilderConfig, validateResponses } from '../utils/formUtils';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL
+  || (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
+    ? 'https://college-event-management-yfmp.onrender.com/api'
+    : 'http://localhost:5000/api');
 const ADMIN_EMAIL = 'avinash@dev.com';
 const ADMIN_PASSWORD = '123456';
 const ADMIN_NAME = 'Avinash';
