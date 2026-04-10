@@ -28,6 +28,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+// Root route for service status on hosting platforms
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Backend is running',
+    health: '/api/health',
+  });
+});
+
 // 404 handler
 app.use((req, res, next) => {
   const error = new Error(`Not Found - ${req.originalUrl}`);
