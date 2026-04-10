@@ -1,0 +1,31 @@
+{
+  "name": "college-event-registration-backend",
+  "version": "1.0.0",
+  "description": "Basic backend for College Event Registration & Management System (Node.js + Express + MongoDB).",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "seed": "node scripts/seedData.js"
+  },
+  "keywords": [
+    "college",
+    "management",
+    "express",
+    "mongodb",
+    "mongoose"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongo": "^0.1.0",
+    "mongoose": "^7.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
